@@ -403,6 +403,26 @@ func (w whatsmeowService) StartClient(cd *ClientData) {
 		}
 	}
 
+	// 🔒 FIX: aplicar a versão também no handshake.
+	//
+	// Os blocos acima gravam apenas em store.DeviceProps.Version, que vai nos
+	// dados do dispositivo no registro de companheiro. O handshake usa outra
+	// coisa: a variável waVersion do pacote store, compilada no whatsmeow como
+	// {2, 3000, 1042386815}. Em 02/11/2026 o WhatsApp passou a recusá-la com
+	// "Client outdated (405)", derrubando o websocket antes do pareamento — e
+	// o log ficava enganoso, dizendo "Setting whatsapp version from web to ..."
+	// enquanto conectava com a versão antiga.
+	//
+	// Ver evolution-foundation/evolution-go#225.
+	if version.Major != 0 && version.Minor != 0 && version.Patch != 0 {
+		store.SetWAVersion(store.WAVersionContainer{
+			uint32(version.Major),
+			uint32(version.Minor),
+			uint32(version.Patch),
+		})
+		w.loggerWrapper.GetLogger(cd.Instance.Id).LogInfo("[%s] Handshake usando a versão %d.%d.%d", cd.Instance.Id, version.Major, version.Minor, version.Patch)
+	}
+
 	// 🔒 FIX: Sempre criar logger, mesmo que WaDebug esteja vazio
 	// Usar "INFO" como nível mínimo para garantir que logs importantes apareçam
 	minLevel := w.config.WaDebug
